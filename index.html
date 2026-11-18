@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador Visual Interativo — Árvore Binária de Busca (BST)</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Cabeçalho -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">BST</div>
+      <div class="brand-text">
+        <h1>Simulador de Árvore Binária de Busca</h1>
+        <p>Visualização interativa passo a passo de inserção, busca, remoção e percursos</p>
+      </div>
+    </div>
+
+    <div class="scenarios-bar">
+      <span class="scenarios-label">Cenários:</span>
+      <button class="btn-scenario" id="btnScenarioAvg" title="Carrega uma BST balanceada (O(log n))">
+        Caso Médio (Balanceada)
+      </button>
+      <button class="btn-scenario" id="btnScenarioWorst" title="Carrega uma BST degenerada em lista (O(n))">
+        Pior Caso (Degenerada)
+      </button>
+      <button class="btn-scenario" id="btnScenarioDelete2" title="Prepara árvore ideal para testar remoção de nó com 2 filhos">
+        Remoção 2 Filhos
+      </button>
+      <button class="btn-scenario" id="btnOpenCustom" title="Insira sua própria sequência de números">
+        Exemplo Customizado...
+      </button>
+      <button class="btn-scenario btn-danger-outline" id="btnClearTree" title="Esvaziar toda a árvore">
+        Limpar
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Controles -->
+  <section class="controls-bar">
+    <!-- Operações -->
+    <div class="control-group">
+      <span class="group-title">Operações:</span>
+      <input type="number" id="nodeValueInput" placeholder="Valor (ex: 42)" min="-999" max="9999" />
+      <button class="btn-op btn-insert" id="btnInsert">+ Inserir</button>
+      <button class="btn-op btn-search" id="btnSearch">Buscar</button>
+      <button class="btn-op btn-delete" id="btnDelete">Remover</button>
+    </div>
+
+    <!-- Percursos -->
+    <div class="control-group">
+      <span class="group-title">Percursos:</span>
+      <select id="traversalSelect" title="Selecione o algoritmo de percurso">
+        <option value="inorder">Em-Ordem (In-Order)</option>
+        <option value="preorder">Pré-Ordem (Pre-Order)</option>
+        <option value="postorder">Pós-Ordem (Post-Order)</option>
+        <option value="levelorder">Em Nível (BFS)</option>
+      </select>
+      <button class="btn-op btn-traverse" id="btnTraverse">Executar Percurso</button>
+    </div>
+
+    <!-- Controles de Execução Passo a Passo -->
+    <div class="control-group">
+      <span class="group-title">Execução:</span>
+      <button class="btn-exec btn-play" id="btnPlay" disabled>▶ Play</button>
+      <button class="btn-exec btn-pause" id="btnPause" disabled>⏸ Pausar</button>
+      <button class="btn-exec btn-step" id="btnStep" disabled>⏭ Próximo Passo</button>
+      <button class="btn-exec btn-reset" id="btnReset" disabled>↺ Reiniciar</button>
+
+      <div class="speed-control">
+        <label for="speedSelect">Velocidade:</label>
+        <select id="speedSelect">
+          <option value="1400">0.5x</option>
+          <option value="850" selected>1.0x</option>
+          <option value="450">1.5x</option>
+          <option value="220">2.5x</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Área Principal -->
+  <main class="workspace">
+    <!-- Canvas da Árvore -->
+    <section class="canvas-panel">
+      <div class="canvas-header">
+        <div class="legend">
+          <div class="legend-item"><span class="dot" style="background: var(--node-default); border: 1.5px solid var(--node-border);"></span> Normal</div>
+          <div class="legend-item"><span class="dot" style="background: var(--node-comparing);"></span> Comparando</div>
+          <div class="legend-item"><span class="dot" style="background: var(--node-visited);"></span> Caminho / Visitado</div>
+          <div class="legend-item"><span class="dot" style="background: var(--node-found);"></span> Encontrado / Inserido</div>
+          <div class="legend-item"><span class="dot" style="background: var(--node-successor);"></span> Sucessor In-Order</div>
+          <div class="legend-item"><span class="dot" style="background: var(--node-target-del);"></span> Alvo Remoção</div>
+        </div>
+
+        <div class="canvas-tools">
+          <button class="btn-tool" id="btnZoomOut" title="Diminuir Zoom">−</button>
+          <button class="btn-tool" id="btnZoomReset" title="Ajustar Árvore à Tela">Ajustar</button>
+          <button class="btn-tool" id="btnZoomIn" title="Aumentar Zoom">+</button>
+        </div>
+      </div>
+
+      <div class="svg-wrapper" id="svgWrapper">
+        <svg id="bstSvg" viewBox="0 0 900 540" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="empty-state" id="emptyState">
+          <div class="empty-state-icon">🌳</div>
+          <div><strong>A árvore está vazia</strong></div>
+          <div style="font-size: 0.85rem;">Digite um número acima e clique em <b>+ Inserir</b> ou escolha um cenário pré-configurado.</div>
+        </div>
+      </div>
+
+      <!-- Barra de Progresso -->
+      <div class="progress-footer">
+        <span class="step-badge" id="stepCounterBadge">Passo 0 / 0</span>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+        <span class="status-pill status-idle" id="execStatusPill">Aguardando</span>
+      </div>
+    </section>
+
+    <!-- Painel Lateral de Estado e Métricas -->
+    <aside class="inspector-panel">
+      <!-- 1. Log Explicativo -->
+      <div class="card">
+        <div class="card-header">
+          <span>Explicação do Passo Atual</span>
+          <span id="opTypeLabel" style="color: var(--primary);">—</span>
+        </div>
+        <div class="card-body">
+          <div class="step-explanation" id="stepExplanation">
+            Selecione uma operação (Inserir, Buscar, Remover ou Percurso) para iniciar a simulação passo a passo.
+          </div>
+          <div class="log-history" id="logHistory"></div>
+        </div>
+      </div>
+
+      <!-- 2. Métricas -->
+      <div class="card">
+        <div class="card-header">
+          <span>Métricas da Operação &amp; Árvore</span>
+          <span id="complexityBadge" style="font-family: var(--font-mono); color: var(--accent);">O(log n)</span>
+        </div>
+        <div class="card-body">
+          <div class="metrics-grid">
+            <div class="metric-box highlight">
+              <div class="metric-label">Comparações</div>
+              <div class="metric-value" id="metricComparisons">0</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Nós Visitados</div>
+              <div class="metric-value" id="metricVisited">0</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Total de Nós (n)</div>
+              <div class="metric-value" id="metricNodeCount">0</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-label">Altura (h)</div>
+              <div class="metric-value" id="metricHeight">-1</div>
+            </div>
+          </div>
+          <div style="margin-top: 8px; display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted);">
+            <span>Estado estrutural:</span>
+            <strong id="metricBalance" style="color: var(--text-main);">Vazia</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Variáveis Auxiliares -->
+      <div class="card">
+        <div class="card-header">
+          <span>Variáveis Auxiliares</span>
+        </div>
+        <div class="card-body" style="padding: 8px 12px;">
+          <table class="vars-table">
+            <thead>
+              <tr>
+                <th>Variável</th>
+                <th>Valor Atual</th>
+              </tr>
+            </thead>
+            <tbody id="varsTableBody">
+              <tr><td class="var-name">operacao</td><td class="var-val null">null</td></tr>
+              <tr><td class="var-name">valorAlvo</td><td class="var-val null">null</td></tr>
+              <tr><td class="var-name">atual</td><td class="var-val null">null</td></tr>
+              <tr><td class="var-name">pai</td><td class="var-val null">null</td></tr>
+              <tr><td class="var-name">sucessor</td><td class="var-val null">null</td></tr>
+            </tbody>
+          </table>
+          <div id="traversalOutputContainer" style="display: none; margin-top: 8px;">
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">Saída do Percurso:</div>
+            <div class="traversal-output" id="traversalOutputList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Pseudocódigo -->
+      <div class="card">
+        <div class="card-header">
+          <span>Pseudocódigo Rastreado</span>
+        </div>
+        <div class="card-body" style="padding: 8px;">
+          <div class="pseudocode-box" id="pseudocodeBox">
+            <div class="code-line">// Selecione uma operação para visualizar o algoritmo</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Modal Customizado -->
+  <div class="modal-backdrop" id="customModal">
+    <div class="modal">
+      <h3>Carregar Exemplo Customizado</h3>
+      <p>Informe uma lista de números inteiros separados por vírgula ou espaço. A árvore será construída na ordem exata informada.</p>
+      <input type="text" id="customValuesInput" value="50, 25, 75, 12, 37, 62, 87, 30, 45" placeholder="Ex: 40, 20, 60, 10, 30, 50, 70" />
+      <label class="checkbox-row">
+        <input type="checkbox" id="customAnimateCheckbox" />
+        Animar inserção passo a passo (em vez de carregar instantaneamente)
+      </label>
+      <div class="modal-actions">
+        <button class="btn-scenario" id="btnCancelCustom">Cancelar</button>
+        <button class="btn-op btn-insert" id="btnConfirmCustom">Carregar Árvore</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
